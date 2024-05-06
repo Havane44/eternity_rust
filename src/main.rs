@@ -15,6 +15,9 @@ fn main() {
     };
 
 
-    let puzzle = Puzzle::new(file_path);
+    let mut puzzle = Puzzle::new(file_path);
+    puzzle.init();
     puzzle.show();
+
+    println!("Score du puzzle : {}", puzzle.fitness());
 }
