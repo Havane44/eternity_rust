@@ -1,6 +1,5 @@
 use std::fs;
 
-#[allow(dead_code)]
 #[derive(PartialEq)]
 pub enum Rotation {
     NoTurn,
@@ -17,7 +16,6 @@ pub enum Position {
     Middle
 }
 
-#[allow(dead_code)]
 #[derive(PartialEq)]
 pub struct Piece {
     top: u32,
@@ -28,7 +26,7 @@ pub struct Piece {
     rotation: Rotation
 }
 
-#[allow(dead_code)]
+#[derive(PartialEq)]
 pub struct Puzzle {
     height: u32,
     width: u32,
@@ -36,7 +34,6 @@ pub struct Puzzle {
     board: Vec<Vec<u32>>
 }
 
-#[allow(dead_code)]
 impl Puzzle {
 
     /// Initialize a new puzzle from an input file ("pieces_NNxNN").
@@ -64,6 +61,7 @@ impl Puzzle {
     /// Initialises a puzzle correctly, by putting the corner pieces at the corners, the border pieces at the borders and the middle pieces in the middle.
     /// The puzzle is not correct yet.
     pub fn init(&mut self) {
+        // TODO: Initialize the puzzle randomly 
         let mut count: u32 = 0;
         for i in 0..(self.height) {
             for j in 0..(self.width) {
@@ -74,7 +72,7 @@ impl Puzzle {
     }
 
     /// Compute the current puzzle fitness, aka the number of matching edges inside the puzzle.
-    pub fn fitness(self) -> u32 {
+    pub fn fitness(&self) -> u32 {
         let mut score: u32 = 0;
 
         // Vertically
@@ -96,6 +94,10 @@ impl Puzzle {
         }
 
         return score;
+    }
+
+    pub fn max_fitness(&self) -> u32 {
+        2*(self.height-1)*self.width
     }
 
     /// Prints the content of the puzzle to the standart output.
@@ -121,10 +123,6 @@ impl Puzzle {
         println!();
     }
 
-}
-
-pub fn hello() {
-    println!("Hello from puzzle.rs !");
 }
 
 #[cfg(test)]
