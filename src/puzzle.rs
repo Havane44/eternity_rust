@@ -1,4 +1,9 @@
 use std::fs;
+use rand::seq::SliceRandom;
+
+pub enum PuzzleError {
+    BoardInitialized
+}
 
 #[derive(PartialEq)]
 pub enum Rotation {
@@ -26,17 +31,30 @@ pub struct Piece {
     rotation: Rotation
 }
 
+pub fn determine_position(top: u32, right: u32) -> Position{
+    if top == 0 {
+        if right == 0 {
+            return Position::Corner;
+        } else {
+            return Position::Border;
+        }
+    } else {
+        return Position::Middle;
+    }
+}
+
 #[derive(PartialEq)]
 pub struct Puzzle {
     height: u32,
     width: u32,
     pieces: Vec<Piece>,
-    board: Vec<Vec<u32>>
+    board: Option<Vec<Vec<u32>>>
 }
 
 impl Puzzle {
 
     /// Initialize a new puzzle from an input file ("pieces_NNxNN").
+    /// The board is kept empty for now ; run init() to randomly initialise it.
     pub fn new(pieces_file: &str) -> Puzzle {
         let contents = fs::read_to_string(pieces_file).unwrap();
         let lines: Vec<&str> = contents.split('\n').collect();
@@ -49,25 +67,90 @@ impl Puzzle {
         let number_of_pieces = lines.len();
         for i in 0..(number_of_pieces-1) {
             let sides: Vec<u32> = lines[i+1].split(' ').map(|x| x.parse::<u32>().unwrap()).collect();
-            pieces_list.push(Piece {top: sides[0], right: sides[1], bottom: sides[2], left: sides[3], place: Position::Unknown, rotation: Rotation::NoTurn});
+            pieces_list.push(Piece {top: sides[0], right: sides[1], bottom: sides[2], left: sides[3], place: determine_position(sides[0], sides[1]), rotation: Rotation::NoTurn});
         }
-
-        // Creates the board matrix
-        let board: Vec<Vec<u32>> = vec![vec![0; dimensions[1].try_into().unwrap()]; dimensions[0].try_into().unwrap()];
         
-        return Puzzle {height: dimensions[0], width: dimensions[1], pieces: pieces_list, board: board};
+        return Puzzle {height: dimensions[0], width: dimensions[1], pieces: pieces_list, board: None};
     }
 
-    /// Initialises a puzzle correctly, by putting the corner pieces at the corners, the border pieces at the borders and the middle pieces in the middle.
-    /// The puzzle is not correct yet.
-    pub fn init(&mut self) {
-        // TODO: Initialize the puzzle randomly 
-        let mut count: u32 = 0;
-        for i in 0..(self.height) {
-            for j in 0..(self.width) {
-                self.board[i as usize][j as usize] = count;
-                count = count + 1
-            }
+    /// Make a puzzle by randomly putting the pieces at the right places
+    pub fn init(mut self) -> Result<(), PuzzleError>{
+
+        match self.board {
+            None => {
+                let board: Vec<Vec<u32>> = vec![vec![0; self.height.try_into().unwrap()]; self.width.try_into().unwrap()];
+
+                let mut corners: Vec<u32> = Vec::new();
+                let mut borders: Vec<u32> = Vec::new();
+                let mut middles: Vec<u32> = Vec::new();
+        
+                let mut count:u32 = 0;
+                for i in 0..(new_puzzle.height as usize) {
+                    for j in 0..(new_puzzle.width as usize) {
+                        if i == 0 || i == (new_puzzle.height as usize) {
+                            if j == 0 || j == (new_puzzle.width as usize) {
+                                // On est sur les index des coins
+                                corners.push(count);
+                                count += 1;
+                            } else {
+                                // On est sur les index des bords
+                                borders.push(count);
+                                count += 1;
+                            }
+                        } else {
+                            if j == 0 || j == (new_puzzle.width as usize) {
+                                // On est sur les index des bords
+                                borders.push(count);
+                                count += 1;
+                            } else {
+                                // On est sur les index des milieux
+                                middles.push(count);
+                                count += 1;
+                            }
+                        }
+                    } 
+                }
+        
+                // Placement des coins
+        
+                let pick = *corners.choose(&mut rand::thread_rng()).unwrap();
+                new_puzzle.board[0][0] = pick;
+        
+                let pick = *corners.choose(&mut rand::thread_rng()).unwrap();
+                new_puzzle.board[0][new_puzzle.width as usize] = pick;
+        
+                let pick = *corners.choose(&mut rand::thread_rng()).unwrap();
+                new_puzzle.board[new_puzzle.height as usize][0] = pick;
+        
+                let pick = *corners.choose(&mut rand::thread_rng()).unwrap();
+                new_puzzle.board[new_puzzle.height as usize][new_puzzle.width as usize] = pick;
+        
+                // Placement des bords
+                for i in 0..(new_puzzle.height as usize) {
+                    match i {
+                        0 => {
+        
+                        },
+                        (new_puzzle.height as usize) => {
+                            prinln!();
+                        },
+                        _ => {
+                            let pick = *borders.choose(&mut rand::thread_rng()).unwrap();
+                            new_puzzle.board[0][0] = pick;
+        
+                            let pick = *borders.choose(&mut rand::thread_rng()).unwrap();
+                            new_puzzle.board[0][new_puzzle.width as usize] = pick;
+                        }
+                    }
+                }
+        
+                // Placement des milieux
+        
+                return Ok();
+            },
+            Some(board) => {
+                return Err(PuzzleError::BoardInitialized);
+            } 
         }
     }
 
