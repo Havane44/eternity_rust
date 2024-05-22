@@ -1,60 +1,107 @@
 use std::fs;
-use rand::seq::SliceRandom;
+use rand::Rng;
 
-pub enum PuzzleError {
-    BoardInitialized
+#[derive(PartialEq, Clone)]
+/// Rotations possibles d'une pièce de puzzle.
+pub enum Rotation {
+    Clockwise,
+    CounterClockwise
 }
 
-#[derive(PartialEq)]
-pub enum Rotation {
-    NoTurn,
+#[derive(PartialEq, Clone)]
+pub enum RotationState {
+    NoRotation,
     QuarterTurn,
     HalfTurn,
-    ThreeQuarterTurn
+    ThreeQuartersTurn
 }
 
-#[derive(PartialEq)]
+pub fn update_angular_state(state: RotationState, rotation: Rotation)-> RotationState {
+    match rotation {
+        Rotation::Clockwise => {
+            match state {
+                RotationState::NoRotation => RotationState::QuarterTurn,
+                RotationState::QuarterTurn => RotationState::HalfTurn,
+                RotationState::HalfTurn => RotationState::ThreeQuartersTurn,
+                RotationState::ThreeQuartersTurn => RotationState::NoRotation
+            }
+        },
+        Rotation::CounterClockwise => {
+            match state {
+                RotationState::NoRotation => RotationState::ThreeQuartersTurn,
+                RotationState::QuarterTurn => RotationState::NoRotation,
+                RotationState::HalfTurn => RotationState::QuarterTurn,
+                RotationState::ThreeQuartersTurn => RotationState::HalfTurn
+            }
+        }
+    }
+}
+
+
+#[derive(PartialEq, Clone, Debug)]
+/// Positions possibles d'une pièce sur le puzzle.
 pub enum Position {
-    Unknown,
     Corner,
     Border,
     Middle
 }
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Clone)]
+/// Pièce de puzzle.
 pub struct Piece {
-    top: u32,
-    right: u32,
-    bottom: u32,
-    left: u32,
-    place: Position,
-    rotation: Rotation
+    sides: [u32; 4],
+    pub place: Position,
+    pub angular_position: RotationState
 }
 
-pub fn determine_position(top: u32, right: u32) -> Position{
-    if top == 0 {
-        if right == 0 {
-            return Position::Corner;
-        } else {
-            return Position::Border;
+impl Piece {
+    pub fn rotate(mut self, rotation: Rotation) {
+        match rotation {
+            Rotation::Clockwise => {
+                let temp = self.sides[0];
+                for i in 0..(self.sides.len()-2) {
+                    self.sides[i] = self.sides[i+1];
+                }
+                self.sides[3] = temp;
+                self.angular_position = update_angular_state(self.angular_position, rotation)
+            },
+            Rotation::CounterClockwise => {
+                let temp = self.sides[3];
+                for i in 1..(self.sides.len()-1) {
+                    self.sides[i] = self.sides[i-1];
+                }
+                self.sides[0] = temp;
+                self.angular_position = update_angular_state(self.angular_position, rotation)
+            }
         }
-    } else {
-        return Position::Middle;
     }
 }
 
-#[derive(PartialEq)]
+pub fn determine_position(sides: &[u32; 4]) -> Position {
+    let mut count: u8 = 0;
+    for i in *sides {
+        if i == 0 {
+            count += 1;
+        }
+    }
+        
+    return match count {
+        0 => Position::Middle, 
+        1 => Position::Border, 
+        2 => Position::Corner,
+        _=> panic!()
+    };
+}
+
+/// Puzzle characteristics, to be extracted from a pieces' file.
 pub struct Puzzle {
     height: u32,
     width: u32,
     pieces: Vec<Piece>,
-    board: Option<Vec<Vec<u32>>>
 }
 
 impl Puzzle {
-
     /// Initialize a new puzzle from an input file ("pieces_NNxNN").
-    /// The board is kept empty for now ; run init() to randomly initialise it.
     pub fn new(pieces_file: &str) -> Puzzle {
         let contents = fs::read_to_string(pieces_file).unwrap();
         let lines: Vec<&str> = contents.split('\n').collect();
@@ -67,91 +114,107 @@ impl Puzzle {
         let number_of_pieces = lines.len();
         for i in 0..(number_of_pieces-1) {
             let sides: Vec<u32> = lines[i+1].split(' ').map(|x| x.parse::<u32>().unwrap()).collect();
-            pieces_list.push(Piece {top: sides[0], right: sides[1], bottom: sides[2], left: sides[3], place: determine_position(sides[0], sides[1]), rotation: Rotation::NoTurn});
+            let sides: [u32; 4] = [sides[0], sides[1], sides[2], sides[3]];
+            pieces_list.push(Piece { sides: sides, place: determine_position(&sides), angular_position: RotationState::NoRotation });
         }
         
-        return Puzzle {height: dimensions[0], width: dimensions[1], pieces: pieces_list, board: None};
+        return Puzzle {height: dimensions[0], width: dimensions[1], pieces: pieces_list};
     }
 
-    /// Make a puzzle by randomly putting the pieces at the right places
-    pub fn init(mut self) -> Result<(), PuzzleError>{
+    /// Prints the puzzle's characteristics.
+    pub fn show(&self) {
+        println!("Dimensions : {} x {}", self.height, self.width);
+        println!();
 
-        match self.board {
-            None => {
-                let board: Vec<Vec<u32>> = vec![vec![0; self.height.try_into().unwrap()]; self.width.try_into().unwrap()];
+        println!("Liste des pièces (dans l'ordre) :");
+        for piece in &self.pieces {
+            println!("{} {} {} {}", piece.sides[0], piece.sides[1], piece.sides[2], piece.sides[3]);
+        }
 
-                let mut corners: Vec<u32> = Vec::new();
-                let mut borders: Vec<u32> = Vec::new();
-                let mut middles: Vec<u32> = Vec::new();
-        
-                let mut count:u32 = 0;
-                for i in 0..(new_puzzle.height as usize) {
-                    for j in 0..(new_puzzle.width as usize) {
-                        if i == 0 || i == (new_puzzle.height as usize) {
-                            if j == 0 || j == (new_puzzle.width as usize) {
-                                // On est sur les index des coins
-                                corners.push(count);
-                                count += 1;
-                            } else {
-                                // On est sur les index des bords
-                                borders.push(count);
-                                count += 1;
-                            }
+        println!();
+    }
+}
+
+pub fn sort_pieces(puzzle: &Puzzle) -> (Vec<Piece>, Vec<Piece>, Vec<Piece>) {
+    let mut corners: Vec<Piece> = Vec::new();
+    let mut borders: Vec<Piece> = Vec::new();
+    let mut middles: Vec<Piece> = Vec::new();
+
+    for piece in &puzzle.pieces {
+        match piece.place {
+            Position::Corner => corners.push(piece.clone()),
+            Position::Border => borders.push(piece.clone()),
+            Position::Middle => middles.push(piece.clone()),
+        }
+    }
+
+    return (corners, borders, middles);
+
+}
+
+#[derive(PartialEq, Clone)]
+/// Puzzle board.
+pub struct PuzzleBoard {
+    height: u32,
+    width: u32,
+    pub board: Vec<Vec<Piece>>
+}
+
+impl PuzzleBoard {
+    /// Make a puzzle by randomly putting the pieces (at the right places: corners on the corners, etc...).
+    pub fn init(puzzle: &Puzzle, original_corners: &Vec<Piece>, original_borders: &Vec<Piece>, original_middles: &Vec<Piece>) -> PuzzleBoard{
+
+        let mut corners = original_corners.clone();
+        let mut borders = original_borders.clone();
+        let mut middles = original_middles.clone();
+
+        let mut board: Vec<Vec<Piece>> = Vec::<Vec<Piece>>::new();
+
+        for i in 0..puzzle.height {
+            board.push(Vec::<Piece>::new());
+            for j in 0..puzzle.width {
+                if i == 0 || i == puzzle.height - 1 {
+                    if j == 0 || j == puzzle.width - 1 {
+                        // Corner
+                        if corners.len() == 0 {
+                            continue;
                         } else {
-                            if j == 0 || j == (new_puzzle.width as usize) {
-                                // On est sur les index des bords
-                                borders.push(count);
-                                count += 1;
-                            } else {
-                                // On est sur les index des milieux
-                                middles.push(count);
-                                count += 1;
-                            }
+                            let piece_index = rand::thread_rng().gen_range(0..corners.len());
+                            board[i as usize].push(corners[piece_index].clone());
+                            corners.remove(piece_index);
                         }
-                    } 
-                }
-        
-                // Placement des coins
-        
-                let pick = *corners.choose(&mut rand::thread_rng()).unwrap();
-                new_puzzle.board[0][0] = pick;
-        
-                let pick = *corners.choose(&mut rand::thread_rng()).unwrap();
-                new_puzzle.board[0][new_puzzle.width as usize] = pick;
-        
-                let pick = *corners.choose(&mut rand::thread_rng()).unwrap();
-                new_puzzle.board[new_puzzle.height as usize][0] = pick;
-        
-                let pick = *corners.choose(&mut rand::thread_rng()).unwrap();
-                new_puzzle.board[new_puzzle.height as usize][new_puzzle.width as usize] = pick;
-        
-                // Placement des bords
-                for i in 0..(new_puzzle.height as usize) {
-                    match i {
-                        0 => {
-        
-                        },
-                        (new_puzzle.height as usize) => {
-                            prinln!();
-                        },
-                        _ => {
-                            let pick = *borders.choose(&mut rand::thread_rng()).unwrap();
-                            new_puzzle.board[0][0] = pick;
-        
-                            let pick = *borders.choose(&mut rand::thread_rng()).unwrap();
-                            new_puzzle.board[0][new_puzzle.width as usize] = pick;
+                    } else {
+                        // Top or bottom border
+                        if borders.len() == 0 {
+                            continue;
+                        } else {
+                            let piece_index = rand::thread_rng().gen_range(0..borders.len());
+                            board[i as usize].push(borders[piece_index].clone());
+                            borders.remove(piece_index);
                         }
                     }
+                } else if  j == 0 || j == puzzle.width - 1 {
+                    if borders.len() == 0 {
+                        continue;
+                    } else {
+                        let piece_index = rand::thread_rng().gen_range(0..borders.len());
+                        board[i as usize].push(borders[piece_index].clone());
+                        borders.remove(piece_index);
+                    }
+                } else {
+                    // Middle
+                    if middles.len() == 0 {
+                        continue;
+                    } else {
+                        let piece_index = rand::thread_rng().gen_range(0..middles.len());
+                        board[i as usize].push(middles[piece_index].clone());
+                        middles.remove(piece_index);
+                    }
                 }
-        
-                // Placement des milieux
-        
-                return Ok();
-            },
-            Some(board) => {
-                return Err(PuzzleError::BoardInitialized);
-            } 
+            }
         }
+
+        return PuzzleBoard {height: puzzle.height, width: puzzle.width, board: board}
     }
 
     /// Compute the current puzzle fitness, aka the number of matching edges inside the puzzle.
@@ -161,7 +224,7 @@ impl Puzzle {
         // Vertically
         for i in 0..((self.height) as usize) {
             for j in 0..((self.width - 1) as usize) {
-                if self.pieces[self.board[i][j] as usize].right == self.pieces[self.board[i][j+1] as usize].left {
+                if self.board[i][j].sides[1] == self.board[i][j+1].sides[3] {
                     score += 1;
                 }
             }
@@ -170,7 +233,7 @@ impl Puzzle {
         // Horizontally
         for i in 0..((self.height - 1) as usize) {
             for j in 0..(self.width as usize) {
-                if self.pieces[self.board[i][j] as usize].bottom == self.pieces[self.board[i+1][j] as usize].top {
+                if self.board[i][j].sides[2] == self.board[i+1][j].sides[0] {
                     score += 1;
                 }
             }
@@ -188,69 +251,13 @@ impl Puzzle {
         println!("Dimensions : {} x {}", self.height, self.width);
         println!();
 
-        println!("Liste des pièces (dans l'ordre) :");
-        for piece in &self.pieces {
-            println!("{} {} {} {}", piece.top, piece.right, piece.bottom, piece.left);
-        }
-
-        println!();
-
-        println!("Position des pièces sur le plateau :");
-        for row in 0..(self.board.len()) {
-            for column in 0..(self.board[row].len()) {
-                print!("{}  ", self.board[row][column]);
+        for i in 0..(&self.board.len() - 1) {
+            let mut count = 0;
+            for _piece in &self.board[i] {
+                count = count + 1;
             }
-            println!()
+            println!("Number of pieces on line {}: {}", i, count);
         }
-        
-        println!();
     }
 
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::puzzle::*;
-
-    #[test]
-    fn create_puzzle_from_file() {
-        let puzzle = Puzzle::new("./pieces_set/pieces_04x04.txt");
-
-        let theoretical_pieces: Vec<Piece> = vec![
-            Piece {top: 0, right: 0, bottom: 1, left: 1, place: Position::Unknown, rotation:Rotation::NoTurn},
-            Piece {top: 0, right: 0, bottom: 1, left: 2, place: Position::Unknown, rotation:Rotation::NoTurn},
-            Piece {top: 0, right: 0, bottom: 2, left: 1, place: Position::Unknown, rotation:Rotation::NoTurn},
-            Piece {top: 0, right: 0, bottom: 2, left: 2, place: Position::Unknown, rotation:Rotation::NoTurn},
-            Piece {top: 0, right: 1, bottom: 3, left: 2, place: Position::Unknown, rotation:Rotation::NoTurn},
-            Piece {top: 0, right: 1, bottom: 4, left: 2, place: Position::Unknown, rotation:Rotation::NoTurn},
-            Piece {top: 0, right: 1, bottom: 5, left: 1, place: Position::Unknown, rotation:Rotation::NoTurn},
-            Piece {top: 0, right: 1, bottom: 5, left: 2, place: Position::Unknown, rotation:Rotation::NoTurn},
-            Piece {top: 0, right: 2, bottom: 3, left: 1, place: Position::Unknown, rotation:Rotation::NoTurn},
-            Piece {top: 0, right: 2, bottom: 4, left: 1, place: Position::Unknown, rotation:Rotation::NoTurn},
-            Piece {top: 0, right: 2, bottom: 4, left: 2, place: Position::Unknown, rotation:Rotation::NoTurn},
-            Piece {top: 0, right: 2, bottom: 5, left: 1, place: Position::Unknown, rotation:Rotation::NoTurn},
-            Piece {top: 3, right: 3, bottom: 4, left: 4, place: Position::Unknown, rotation:Rotation::NoTurn},
-            Piece {top: 3, right: 3, bottom: 5, left: 5, place: Position::Unknown, rotation:Rotation::NoTurn},
-            Piece {top: 3, right: 4, bottom: 5, left: 4, place: Position::Unknown, rotation:Rotation::NoTurn},
-            Piece {top: 3, right: 5, bottom: 5, left: 5, place: Position::Unknown, rotation:Rotation::NoTurn},
-        ];
-
-        // let theoretical_board: Vec<Vec<u32>> = vec![
-        //     vec![0, 1, 2, 3],
-        //     vec![4, 5, 6, 7], 
-        //     vec![8, 9, 10, 11],
-        //     vec![12, 13, 14, 15]
-        // ];
-
-        assert!(puzzle.height == 4);
-        assert!(puzzle.width == 4);
-        assert!(puzzle.pieces.len() == theoretical_pieces.len());
-
-        // for i  in 1..theoretical_pieces.len() {
-        //     assert!(puzzle.pieces[i] == theoretical_pieces[i])
-        // }
-
-        // assert!(puzzle.board == theoretical_board);
-
-    }
 }
