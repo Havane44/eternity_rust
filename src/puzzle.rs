@@ -2,12 +2,13 @@ use std::fs;
 use rand::Rng;
 
 #[derive(PartialEq, Clone)]
-/// Rotations possibles d'une pièce de puzzle.
+/// Models the possible rotation that can be performed on a puzzle piece.
 pub enum Rotation {
     Clockwise,
     CounterClockwise
 }
 
+/// Models the possible states a piece can be in.
 #[derive(PartialEq, Clone)]
 pub enum RotationState {
     NoRotation,
@@ -16,6 +17,7 @@ pub enum RotationState {
     ThreeQuartersTurn
 }
 
+/// Updates the rotation state of a puzzle piece.
 pub fn update_angular_state(state: RotationState, rotation: Rotation)-> RotationState {
     match rotation {
         Rotation::Clockwise => {
@@ -39,7 +41,7 @@ pub fn update_angular_state(state: RotationState, rotation: Rotation)-> Rotation
 
 
 #[derive(PartialEq, Clone, Debug)]
-/// Positions possibles d'une pièce sur le puzzle.
+/// Possible positions of a puzzle piece on the board.
 pub enum Position {
     Corner,
     Border,
@@ -47,7 +49,7 @@ pub enum Position {
 }
 
 #[derive(PartialEq, Clone)]
-/// Pièce de puzzle.
+/// Models a puzzle piece.
 pub struct Piece {
     sides: [u32; 4],
     pub place: Position,
@@ -55,6 +57,7 @@ pub struct Piece {
 }
 
 impl Piece {
+    /// Rotates the puzzle piece.
     pub fn rotate(mut self, rotation: Rotation) {
         match rotation {
             Rotation::Clockwise => {
@@ -77,6 +80,7 @@ impl Piece {
     }
 }
 
+/// Determines the position of a piece, given its characteristics.
 pub fn determine_position(sides: &[u32; 4]) -> Position {
     let mut count: u8 = 0;
     for i in *sides {
@@ -93,7 +97,7 @@ pub fn determine_position(sides: &[u32; 4]) -> Position {
     };
 }
 
-/// Puzzle characteristics, to be extracted from a pieces' file.
+/// Puzzle characteristics, to be extracted from a pieces' set file.
 pub struct Puzzle {
     height: u32,
     width: u32,
@@ -133,8 +137,13 @@ impl Puzzle {
 
         println!();
     }
+
+    pub fn max_fitness(&self) -> u32 {
+        2*(self.height-1)*self.width
+    }
 }
 
+/// Sorts the puzzles pieces and return three vectors, each containing only one piece type.
 pub fn sort_pieces(puzzle: &Puzzle) -> (Vec<Piece>, Vec<Piece>, Vec<Piece>) {
     let mut corners: Vec<Piece> = Vec::new();
     let mut borders: Vec<Piece> = Vec::new();
@@ -217,7 +226,12 @@ impl PuzzleBoard {
         return PuzzleBoard {height: puzzle.height, width: puzzle.width, board: board}
     }
 
-    /// Compute the current puzzle fitness, aka the number of matching edges inside the puzzle.
+    /// Perform mutations on a puzzle.
+    pub fn mutate() {
+        todo!();
+    }
+
+    /// Compute the number of matching edges inside the puzzle.
     pub fn fitness(&self) -> u32 {
         let mut score: u32 = 0;
 
@@ -242,11 +256,36 @@ impl PuzzleBoard {
         return score;
     }
 
+    /// Compute the maximal fitness that the board can have, based on the fitness() method
     pub fn max_fitness(&self) -> u32 {
         2*(self.height-1)*self.width
     }
 
-    /// Prints the content of the puzzle to the standart output.
+    /// Compute the number of 2x2 regions that match in their inner adjacent inner sides
+    pub fn fitness_2(&self) -> u32 { todo!(); }
+
+    /// Compute the maximal fitness that the board can have, based on the fitness_2() method
+    pub fn max_fitness_2(&self) -> u32 {
+        todo!()
+    }
+
+    /// Compute the number of tiles that have their 4 edges matching with adjacent tiles
+    pub fn fitness_3(&self) -> u32 { todo!(); }
+
+    /// Compute the maximal fitness that the board can have, based on the fitness_3() method
+    pub fn max_fitness_3(&self) -> u32 {
+        todo!()
+    }
+
+    /// Compute the number of 3x3 regions that match in their inner adjacent inner sides
+    pub fn fitness_4(&self) -> u32 { todo!(); }
+
+    /// Compute the maximal fitness that the board can have, based on the fitness_4() method
+    pub fn max_fitness_4(&self) -> u32 {
+        todo!()
+    }
+
+    /// Prints the content of the puzzle to the standard output.
     pub fn show(&self) {
         println!("Dimensions : {} x {}", self.height, self.width);
         println!();
